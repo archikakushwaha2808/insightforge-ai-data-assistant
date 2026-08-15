@@ -151,7 +151,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     client.get('/datasets/').then((res) => {
-      setDatasets(res.data)
+      setDatasets(Array.isArray(res.data) ? res.data : Array.isArray(res.data?.datasets) ? res.data.datasets : [])
       if (res.data.length) setSelectedId(res.data[0].id)
     })
   }, [])
@@ -260,7 +260,7 @@ export default function ChatPage() {
                 onChange={(e) => setSelectedId(Number(e.target.value))}
                 className="mb-4 px-3 py-2 rounded-lg bg-surface/50 border border-border text-xs outline-none focus:border-signal-cyan"
               >
-                {datasets.map((d) => <option key={d.id} value={d.id}>{d.filename}</option>)}
+                {(Array.isArray(datasets) ? datasets : []).map((d) => <option key={d.id} value={d.id}>{d.filename}</option>)}
               </select>
 
               <div className="flex-1 overflow-y-auto hide-scrollbar space-y-4">
