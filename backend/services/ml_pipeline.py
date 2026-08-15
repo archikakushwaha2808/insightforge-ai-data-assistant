@@ -43,6 +43,15 @@ def run_supervised(df: pd.DataFrame, target_col: str) -> dict:
     X, _ = _prepare_features(df, feature_cols)
     y_raw = df[target_col]
 
+    if pd.api.types.is_datetime64_any_dtype(y_raw):
+        return {
+            "error": (
+                f"'{target_col}' is a date/time column. "
+                "Please choose a numeric column for regression "
+                "or a categorical column for classification."
+            )
+        }
+
     is_classification = (
         y_raw.dtype == object
         or str(y_raw.dtype).startswith("category")

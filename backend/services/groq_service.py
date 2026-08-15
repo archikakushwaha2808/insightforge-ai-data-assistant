@@ -675,7 +675,7 @@ def chat(profile: dict, history: list[dict], user_message: str, df: pd.DataFrame
     # the model make several run_sql_query calls across rounds if it
     # doesn't batch them all into one response — the actual cause of
     # "asked for 5 queries, got 1".
-    MAX_TOOL_ROUNDS = 8
+    MAX_TOOL_ROUNDS = 3
     rounds = 0
     while msg.tool_calls and rounds < MAX_TOOL_ROUNDS:
         rounds += 1

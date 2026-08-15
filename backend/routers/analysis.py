@@ -24,7 +24,13 @@ def _get_dataset_or_404(dataset_id: int, db: Session, user: models.User) -> mode
 
 
 def _load_df(ds: models.Dataset) -> pd.DataFrame:
-    return pd.read_parquet(ds.stored_path)
+    try:
+        return pd.read_parquet(ds.stored_path)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=410,
+            detail="This dataset session has expired. Please upload the dataset again."
+        )
 
 
 @router.get("/{dataset_id}/dashboard")
