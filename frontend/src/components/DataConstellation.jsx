@@ -23,8 +23,6 @@ function useFibonacciSphere(count, radius) {
 }
 
 function Nodes({ isDark }) {
-  // Prevent WebGL/component crashes from taking down the whole page.
-  try {
   const groupRef = useRef()
   const points = useFibonacciSphere(42, 2.1)
 
@@ -78,10 +76,6 @@ function Nodes({ isDark }) {
       ))}
     </group>
   )
-  } catch (error) {
-    console.error("[DataConstellation] render failed:", error)
-    return null
-  }
 }
 
 function Core({ isDark }) {
