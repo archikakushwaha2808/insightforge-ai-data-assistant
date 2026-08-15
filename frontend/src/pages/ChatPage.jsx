@@ -168,10 +168,21 @@ export default function ChatPage() {
               id: Number(savedId),
               filename: savedName
             }]
+            setSelectedId(Number(savedId))
           }
         }
 
         setDatasets(data)
+
+        // Ensure the currently visible dataset is also selected by ID.
+        if (!selectedId && data.length) {
+          const savedId = localStorage.getItem('insightforge-last-dataset-id')
+          const matching = savedId
+            ? data.find((d) => String(d.id) === String(savedId))
+            : null
+
+          setSelectedId(matching?.id ?? data[0].id)
+        }
       if (res.data.length) setSelectedId(res.data[0].id)
     })
   }, [])
