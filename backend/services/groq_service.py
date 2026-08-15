@@ -25,6 +25,7 @@ inside a stray ```sql code fence, sometimes several calls back-to-back. The
 `_extract_inline_tool_calls` scanner below recovers *all* of those forms so
 they can still be executed for real, and the raw markup never reaches the UI.
 """
+import time
 import json
 import re
 from typing import Optional
@@ -61,19 +62,34 @@ def _create_completion(**kwargs):
     errors into our own exception types. Every completion call in this file
     goes through here so error handling is consistent everywhere."""
     kwargs.setdefault("timeout", settings.GROQ_TIMEOUT_SECONDS)
-    try:
-        return client.chat.completions.create(**kwargs)
-    except APITimeoutError as e:
-        raise AssistantTimeoutError(f"Groq request timed out after {settings.GROQ_TIMEOUT_SECONDS}s") from e
-    except APIConnectionError as e:
-        # Network-level failure reaching Groq behaves the same as a timeout
-        # from the caller's point of view: no usable response came back.
-        raise AssistantTimeoutError(f"Could not reach Groq: {e}") from e
-    except RateLimitError as e:
-        raise AssistantOverloadedError(
-            "The assistant is getting a lot of requests right now (rate limit reached). "
-            "Please wait a few seconds and try again."
-        ) from e
+        max_retries = 3
+
+    for attempt in range(max_retries):
+        try:
+            return client.chat.completions.create(**kwargs)
+
+        except APITimeoutError as e:
+            raise AssistantTimeoutError(
+                f"Groq request timed out after {settings.GROQ_TIMEOUT_SECONDS} seconds."
+            ) from e
+
+        except APIConnectionError as e:
+            # Network-level failure reaching Groq behaves the same as a timeout
+            # from the caller's point of view: no usable response can come back.
+            raise AssistantTimeoutError(
+                f"Could not reach Groq: {e}"
+            ) from e
+
+        except RateLimitError as e:
+            if attempt < max_retries - 1:
+                wait_seconds = 2 ** attempt
+                time.sleep(wait_seconds)
+                continue
+
+            raise AssistantOverloadedError(
+                "The assistant is getting a lot of requests right now (rate limit reached). "
+                "Please wait a few seconds and try again."
+            ) from e
     except APIStatusError as e:
         if e.status_code == 413:
             raise AssistantOverloadedError(

@@ -326,18 +326,35 @@ export default function Workspace() {
               </div>
             )}
             {!loadingInsights && insightsError && (
-              <div className="py-12 text-center">
-                <p className="text-signal-magenta text-sm flex items-center gap-2 justify-center mb-3">
-                  <AlertTriangle size={14} /> {insightsError}
-                </p>
-                <button onClick={loadInsights} className="text-sm text-signal-cyan hover:underline">Try again</button>
-                <p className="text-xs text-muted mt-4 max-w-md mx-auto">
-                  This usually means the backend's GROQ_API_KEY in .env is missing, still the
-                  placeholder value, or invalid — check the terminal running uvicorn for the
-                  actual error message.
-                </p>
-              </div>
-            )}
+  <div className="py-8 text-center">
+    <div className="inline-block px-6 py-4 rounded-xl border border-signal-magenta/30 bg-surface/40">
+      <div className="flex items-center justify-center gap-2 text-signal-magenta text-sm">
+        <AlertTriangle size={16} />
+        <span>AI Insights couldn't be generated</span>
+      </div>
+
+      <p className="mt-2 text-xs text-muted max-w-md mx-auto">
+        {String(insightsError).includes("429") ||
+        String(insightsError).toLowerCase().includes("rate limit")
+          ? "The AI service is temporarily busy. Please wait a moment and try again."
+          : String(insightsError).includes("502")
+          ? "The AI service is temporarily unavailable. Please try again in a moment."
+          : "We couldn't generate insights right now. Please try again."}
+      </p>
+
+      <button
+        type="button"
+        onClick={() => {
+          setInsightsError("")
+          loadInsights()
+        }}
+        className="mt-3 text-sm text-signal-cyan hover:underline"
+      >
+        Try again
+      </button>
+    </div>
+  </div>
+)}
             {!loadingInsights && insights && (
               <>
                 <div className="p-6 rounded-2xl border border-border bg-surface/40">
@@ -388,9 +405,41 @@ export default function Workspace() {
                 className="px-4 py-2.5 rounded-xl bg-surface/50 border border-border text-sm outline-none focus:border-signal-cyan disabled:opacity-50"
               >
                 <option value="">No target — find clusters</option>
-                {dashboardData?.profile.columns.map((c) => (
-                  <option key={c.name} value={c.name}>{c.name}</option>
-                ))}
+                {dashboardData?.profile?.columns
+  ?.filter((c) => {
+    const name = String(c.name || "").toLowerCase();
+    const dtype = String(c.dtype || c.type || "").toLowerCase();
+
+    // Exclude date/time columns
+    if (
+      dtype.includes("date") ||
+      dtype.includes("time") ||
+      name.includes("date") ||
+      name.includes("time")
+    ) {
+      return false;
+    }
+
+    // Exclude obvious ID columns
+    if (
+      name === "id" ||
+      name.endsWith("_id") ||
+      name.endsWith(" id") ||
+      name.includes("customer id") ||
+      name.includes("order id") ||
+      name.includes("product id") ||
+      name.includes("row id")
+    ) {
+      return false;
+    }
+
+    return true;
+  })
+  .map((c) => (
+    <option key={c.name} value={c.name}>
+      {c.name}
+    </option>
+  ))}
               </select>
               <button
                 onClick={() => runMl(targetCol || null)}
@@ -411,11 +460,33 @@ export default function Workspace() {
               </div>
             )}
 
-            {!loadingMl && mlError && (
-              <p className="text-signal-magenta text-sm flex items-center gap-2">
-                <AlertTriangle size={14} /> {mlError}
-              </p>
-            )}
+{!loadingML && mLError && (
+  <div className="py-6 text-center">
+    <div className="inline-block px-6 py-4 rounded-xl border border-signal-magenta/30 bg-signal-magenta/5">
+      <div className="flex items-center justify-center gap-2 text-signal-magenta text-sm font-medium">
+        <AlertTriangle size={16} />
+        <span>Machine learning couldn't be completed</span>
+      </div>
+
+      <p className="mt-2 text-xs text-muted max-w-md">
+        {String(mLError).includes("429") ||
+        String(mLError).toLowerCase().includes("rate limit")
+          ? "The AI service is temporarily busy. Please wait a moment and try again."
+          : String(mLError).includes("502")
+          ? "The AI service is temporarily unavailable. Please try again in a moment."
+          : "We couldn't complete this operation. Please check your data and try again."}
+      </p>
+
+      <button
+        type="button"
+        onClick={() => setMLError("")}
+        className="mt-3 text-sm text-signal-cyan hover:underline"
+      >
+        Try again
+      </button>
+    </div>
+  </div>
+)}
 
             {!loadingMl && mlResult && !mlResult.error && (
               <>

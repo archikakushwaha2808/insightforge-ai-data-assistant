@@ -36,6 +36,82 @@ def _prepare_features(df: pd.DataFrame, feature_cols: list[str]):
     X_imputed = pd.DataFrame(imputer.fit_transform(X), columns=X.columns, index=X.index)
     return X_imputed, encoders
 
+def get_valid_target_columns(df: pd.DataFrame) -> list[str]:
+    """
+    Automatically find columns that are suitable ML prediction targets.
+    Excludes date/time columns, obvious ID columns, empty columns,
+    constant columns, and extremely high-cardinality text columns.
+    """
+
+    valid_targets = []
+
+    for col in df.columns:
+        series = df[col]
+
+        # Ignore completely empty columns
+        if series.dropna().empty:
+            continue
+
+        # Ignore columns with only one unique value
+        if series.dropna().nunique() <= 1:
+            continue
+
+        # Ignore actual datetime columns
+        if pd.api.types.is_datetime64_any_dtype(series):
+            continue
+
+        # Detect date columns stored as strings
+        if series.dtype == object:
+            sample = series.dropna().astype(str).head(100)
+
+            if len(sample) > 0:
+                parsed_dates = pd.to_datetime(sample, errors="coerce")
+
+                if parsed_dates.notna().mean() >= 0.8:
+                    continue
+
+        # Ignore obvious ID columns
+        col_lower = str(col).strip().lower()
+
+        if (
+            col_lower == "id"
+            or col_lower.endswith("_id")
+            or col_lower.endswith(" id")
+            or col_lower in {
+                "order id",
+                "customer id",
+                "product id",
+                "transaction id",
+                "transaction_id",
+                "customer_id",
+                "product_id",
+                "order_id"
+            }
+        ):
+            continue
+
+        # Numeric columns can be prediction targets
+        if pd.api.types.is_numeric_dtype(series):
+            valid_targets.append(col)
+            continue
+
+        # Boolean columns can be classification targets
+        if pd.api.types.is_bool_dtype(series):
+            valid_targets.append(col)
+            continue
+
+        # Categorical/text columns can be classification targets
+        if (
+            series.dtype == object
+            or str(series.dtype).startswith("category")
+        ):
+            unique_count = series.dropna().nunique()
+
+            if unique_count <= min(50, max(2, int(len(series) * 0.2))):
+                valid_targets.append(col)
+
+    return valid_targets
+
 
 def run_supervised(df: pd.DataFrame, target_col: str) -> dict:
     df = df.dropna(subset=[target_col])
