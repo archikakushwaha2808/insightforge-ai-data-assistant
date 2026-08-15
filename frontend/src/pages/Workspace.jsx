@@ -17,6 +17,8 @@ function extractErrorMessage(err) {
   return err?.response?.data?.detail || err?.message || 'Something went wrong. Please try again.'
 }
 
+const asArray = (value) => (Array.isArray(value) ? value : []);
+
 export default function Workspace() {
   const [dataset, setDataset] = useState(null)
   const [recentDatasets, setRecentDatasets] = useState([])
@@ -48,7 +50,16 @@ export default function Workspace() {
     if (savedId && savedName) {
       setDataset({ dataset_id: Number(savedId), filename: savedName })
     }
-    client.get('/datasets/').then((res) => setRecentDatasets(res.data)).catch(() => {})
+    client.get('/datasets/')
+      .then((res) => {
+        const data = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.datasets)
+            ? res.data.datasets
+            : []
+        setRecentDatasets(data)
+      })
+      .catch(() => setRecentDatasets([]))
   }, [])
 
   const selectDataset = (id, filename) => {
@@ -94,7 +105,22 @@ export default function Workspace() {
         params.filter_value = filterValue
       }
       const res = await client.get(`/analysis/${dataset.dataset_id}/dashboard`, { params })
-      setDashboardData(res.data)
+      {
+      const data = res.data || {}
+      setDashboardData({
+        ...data,
+        kpis: asArray(data.kpis),
+        charts: asArray(data.charts),
+        filterable_columns: asArray(data.filterable_columns),
+        profile: {
+          ...(data.profile || {}),
+          columns: asArray(data.profile?.columns),
+          numeric_columns: asArray(data.profile?.numeric_columns),
+          categorical_columns: asArray(data.profile?.categorical_columns),
+          datetime_columns: asArray(data.profile?.datetime_columns),
+        },
+      })
+    }
     } catch (err) {
       setUploadError(extractErrorMessage(err))
     } finally {
