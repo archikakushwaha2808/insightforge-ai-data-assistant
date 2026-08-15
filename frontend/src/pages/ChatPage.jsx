@@ -151,7 +151,27 @@ export default function ChatPage() {
 
   useEffect(() => {
     client.get('/datasets/').then((res) => {
-      setDatasets(Array.isArray(res.data) ? res.data : Array.isArray(res.data?.datasets) ? res.data.datasets : [])
+      let data = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.datasets)
+            ? res.data.datasets
+            : []
+
+        // Use the dataset already selected/uploaded in Workspace
+        // when the production dataset list is empty/stale.
+        if (!data.length) {
+          const savedId = localStorage.getItem('insightforge-last-dataset-id')
+          const savedName = localStorage.getItem('insightforge-last-dataset-name')
+
+          if (savedId && savedName) {
+            data = [{
+              id: Number(savedId),
+              filename: savedName
+            }]
+          }
+        }
+
+        setDatasets(data)
       if (res.data.length) setSelectedId(res.data[0].id)
     })
   }, [])
