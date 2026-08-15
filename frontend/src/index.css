@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html.dark {
+  --color-base: 10 14 26;        /* deep space navy */
+  --color-surface: 17 23 41;
+  --color-ink: 231 234 243;
+  --color-muted: 124 135 166;
+  --color-border: 231 234 243;   /* used with low alpha via bg-border/opacity utilities */
+}
+
+html.light {
+  --color-base: 246 247 251;     /* soft cloud white */
+  --color-surface: 255 255 255;
+  --color-ink: 20 24 38;
+  --color-muted: 90 99 122;
+  --color-border: 20 24 38;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: rgb(var(--color-base));
+  color: rgb(var(--color-ink));
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #3FE0C5, #8C7BFF);
+  border-radius: 8px;
+}
+
+:focus-visible {
+  outline: 2px solid #3FE0C5;
+  outline-offset: 2px;
+}
+
+.font-display {
+  letter-spacing: -0.02em;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #3FE0C5 0%, #8C7BFF 55%, #FF6FB0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.glass-panel {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
