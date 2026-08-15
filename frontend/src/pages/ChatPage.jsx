@@ -220,7 +220,12 @@ export default function ChatPage() {
   }
 
   const sendMessage = async () => {
-    if (!input.trim() || !selectedId) return
+    const datasetId =
+      selectedId ||
+      localStorage.getItem('insightforge-last-dataset-id') ||
+      datasets?.[0]?.id
+
+    if (!input.trim() || !datasetId) return
     const text = input
     setMessages((m) => [...m, { role: 'user', content: text }])
     setInput('')
@@ -228,7 +233,7 @@ export default function ChatPage() {
     try {
       let sessionId = selectedSessionId
       if (!sessionId) {
-        const created = await client.post(`/chat/${selectedId}/sessions`)
+        const created = await client.post(`/chat/${datasetId}/sessions`)
         sessionId = created.data.id
         setSelectedSessionId(sessionId)
         setSessions((s) => [created.data, ...s])
