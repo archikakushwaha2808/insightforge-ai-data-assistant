@@ -20,7 +20,8 @@ async def startup_event():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],  # add your deployed frontend URL later if needed
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origin_regex=r"https://insightforge-ai-data-assistant.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
