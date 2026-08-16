@@ -41,13 +41,6 @@ class Settings:
     GROQ_INSIGHTS_MAX_TOKENS = int(os.getenv("GROQ_INSIGHTS_MAX_TOKENS", "12000"))
 
     UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "storage", "uploads")
-
-    # Supabase Storage — persistent file storage. Render's free-tier disk is
-    # ephemeral and wipes local files on every restart/redeploy, so uploaded
-    # dataset files are stored here instead of UPLOAD_DIR in production.
-    SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
-    SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "insightforge-uploads")
     MAX_UPLOAD_MB = 50
 
 settings = Settings()

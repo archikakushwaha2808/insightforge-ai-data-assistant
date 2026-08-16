@@ -10,6 +10,7 @@ from core.config import settings
 import models
 from services.data_loader import load_dataframe
 from services.profiler import clean_dataframe, build_profile
+from services import object_storage
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 
@@ -28,26 +29,34 @@ async def upload_dataset(file: UploadFile = File(...), db: Session = Depends(get
         raise HTTPException(status_code=400, detail=f"File exceeds {settings.MAX_UPLOAD_MB}MB limit.")
 
     stored_name = f"{uuid.uuid4().hex}{ext}"
-    stored_path = os.path.join(settings.UPLOAD_DIR, stored_name)
-    with open(stored_path, "wb") as f:
+    tmp_path = os.path.join(settings.UPLOAD_DIR, stored_name)
+    with open(tmp_path, "wb") as f:
         f.write(contents)
 
     try:
-        df = load_dataframe(stored_path, file.filename)
+        df = load_dataframe(tmp_path, file.filename)
         clean_df, _log = clean_dataframe(df)
         profile = build_profile(clean_df)
     except Exception as e:
-        os.remove(stored_path)
+        os.remove(tmp_path)
         raise HTTPException(status_code=422, detail=f"Could not parse file: {e}")
 
-    # persist the CLEANED version so re-analysis is fast & consistent
-    clean_path = stored_path + ".clean.parquet"
-    clean_df.to_parquet(clean_path)
+    import io
+    buf = io.BytesIO()
+    clean_df.to_parquet(buf)
+    storage_key = f"{stored_name}.clean.parquet"
+    try:
+        object_storage.upload_bytes(storage_key, buf.getvalue())
+    except Exception as e:
+        os.remove(tmp_path)
+        raise HTTPException(status_code=502, detail=f"Could not save dataset to storage: {e}")
+
+    os.remove(tmp_path)
 
     dataset = models.Dataset(
         owner_id=current_user.id,
         filename=file.filename,
-        stored_path=clean_path,
+        stored_path=storage_key,
         file_type=ext,
         row_count=profile["n_rows"],
         col_count=profile["n_cols"],
@@ -74,8 +83,7 @@ def delete_dataset(dataset_id: int, db: Session = Depends(get_db),
                                           models.Dataset.owner_id == current_user.id).first()
     if not ds:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    if os.path.exists(ds.stored_path):
-        os.remove(ds.stored_path)
+    object_storage.delete_object(ds.stored_path)
     db.delete(ds)
     db.commit()
     return {"status": "deleted"}

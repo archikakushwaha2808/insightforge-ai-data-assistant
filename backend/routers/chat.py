@@ -1,3 +1,4 @@
+import io
 import json
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +9,7 @@ from core.database import get_db
 from core.auth import get_current_user
 import models
 from services.groq_service import chat as groq_chat, AssistantTimeoutError, AssistantOverloadedError
+from services import object_storage
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -33,9 +35,6 @@ def _get_session_or_404(session_id: int, db: Session, user: models.User) -> mode
 
 
 def _load_list(raw: "str | None") -> list:
-    """chart_json/table_json store a JSON *list* (multi-query turns keep every
-    result). Older rows saved before that change may still hold a single JSON
-    object — wrap those in a list so history keeps rendering correctly."""
     if not raw:
         return []
     parsed = json.loads(raw)
@@ -55,10 +54,6 @@ def _serialize_message(m: models.ChatMessage) -> dict:
     }
 
 
-# ---------------------------------------------------------------------------
-# Sessions — a ChatGPT-style "New Chat" / history list, scoped to a dataset.
-# ---------------------------------------------------------------------------
-
 @router.get("/{dataset_id}/sessions")
 def list_sessions(dataset_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     ds = _get_dataset_or_404(dataset_id, db, current_user)
@@ -69,8 +64,6 @@ def list_sessions(dataset_id: int, db: Session = Depends(get_db), current_user: 
 
 @router.post("/{dataset_id}/sessions")
 def create_session(dataset_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    """'+ New Chat' — a genuinely fresh conversation/session. Nothing from any
-    other session is ever sent to the model for this session's messages."""
     ds = _get_dataset_or_404(dataset_id, db, current_user)
     session = models.ChatSession(dataset_id=ds.id, title="New Chat")
     db.add(session)
@@ -99,7 +92,7 @@ def send_session_message(session_id: int, payload: ChatRequest, db: Session = De
     history = [{"role": m.role, "content": m.content} for m in prior]
 
     try:
-        df = pd.read_parquet(ds.stored_path)
+        df = pd.read_parquet(io.BytesIO(object_storage.download_bytes(ds.stored_path)))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Could not load dataset: {e}")
 
@@ -108,8 +101,6 @@ def send_session_message(session_id: int, payload: ChatRequest, db: Session = De
     except AssistantTimeoutError as e:
         raise HTTPException(status_code=504, detail=f"Assistant timed out: {e}")
     except AssistantOverloadedError as e:
-        # Friendly, actionable message for 413 (too large)/429 (rate limit) —
-        # never the raw Groq error text.
         raise HTTPException(status_code=429, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI assistant failed: {e}")
@@ -126,8 +117,6 @@ def send_session_message(session_id: int, payload: ChatRequest, db: Session = De
     db.add(user_msg)
     db.add(assistant_msg)
 
-    # Auto-title the session from the first message, ChatGPT-style — only
-    # once, so re-opening an old conversation never renames it.
     if session.title == "New Chat":
         session.title = payload.message.strip()[:60] or "New Chat"
     from datetime import datetime
@@ -147,12 +136,6 @@ def send_session_message(session_id: int, payload: ChatRequest, db: Session = De
         "suggestions": result.get("suggestions", []),
     }
 
-
-# ---------------------------------------------------------------------------
-# Backward-compatible dataset-level endpoints — resolve to (or create) that
-# dataset's most recently updated session, so nothing that already depends
-# on the old flat per-dataset chat breaks.
-# ---------------------------------------------------------------------------
 
 def _latest_or_new_session(ds: models.Dataset, db: Session) -> models.ChatSession:
     session = db.query(models.ChatSession).filter(models.ChatSession.dataset_id == ds.id) \
