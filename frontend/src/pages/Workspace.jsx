@@ -38,6 +38,7 @@ export default function Workspace() {
 
   const [loadingDashboard, setLoadingDashboard] = useState(false)
   const [loadingInsights, setLoadingInsights] = useState(false)
+const [loadingML, setLoadingML] = useState(false)
   const [loadingMl, setLoadingMl] = useState(false)
   const [insightsError, setInsightsError] = useState('')
   const [mlError, setMlError] = useState('')
