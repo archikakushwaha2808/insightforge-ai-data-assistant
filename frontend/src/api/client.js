@@ -17,21 +17,35 @@ client.interceptors.request.use((config) => {
   return config
 })
 
-// Render's free tier puts the backend to sleep after idle time. The request
-// that wakes it back up sometimes fails outright with a 500/502/503 before
-// the server is actually ready, rather than just being slow. Rather than
-// surfacing that as a real error to the user, silently retry once after a
-// short delay — by then the backend is awake and the retry succeeds.
+// Render's free tier puts the backend to sleep after idle time, and warns
+// cold starts can take "50 seconds or more." The request that wakes it up
+// often fails outright (500/502/503, or a bare network error with no
+// response at all if the connection is refused while the container is
+// still booting) rather than just being slow. A single quick retry isn't
+// enough to reliably survive that window, so this retries up to 3 times
+// with increasing delays (5s, 15s, 30s — ~50s total, matching Render's own
+// stated worst case) before finally surfacing an error to the user.
+const COLD_START_RETRY_DELAYS_MS = [5000, 15000, 30000]
+
+function looksLikeColdStart(err) {
+  const status = err.response?.status
+  // No response at all (network error / connection refused) OR a gateway-
+  // level error status are both consistent with the backend being asleep.
+  return !err.response || status === 500 || status === 502 || status === 503
+}
+
 client.interceptors.response.use(
   (res) => res,
   async (err) => {
-    const status = err.response?.status
-    const isColdStartLikely = status === 500 || status === 502 || status === 503
     const config = err.config
-    if (isColdStartLikely && config && !config._retriedAfterColdStart) {
-      config._retriedAfterColdStart = true
-      await new Promise((resolve) => setTimeout(resolve, 3000))
-      return client(config)
+    if (config && looksLikeColdStart(err)) {
+      config._coldStartRetryCount = config._coldStartRetryCount || 0
+      if (config._coldStartRetryCount < COLD_START_RETRY_DELAYS_MS.length) {
+        const delay = COLD_START_RETRY_DELAYS_MS[config._coldStartRetryCount]
+        config._coldStartRetryCount += 1
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        return client(config)
+      }
     }
     if (err.response?.status === 401) {
       localStorage.removeItem('insightforge-token')
