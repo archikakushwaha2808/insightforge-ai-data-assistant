@@ -1,25 +1,58 @@
+<div align="center">
+
 # InsightForge — AI Data Analyst
 
-Upload any dataset (CSV, TSV, TXT, XLSX, XLS, JSON) and get, automatically:
-data cleaning, EDA with charts + plain-English descriptions, a KPI dashboard,
-automated ML (classification / regression / clustering with model comparison),
-GenAI-written business insights, and a persistent multi-turn chat assistant
-that can draw new charts and run real SQL queries against your data on
-request. Full dark/light mode, animated 3D hero.
+**Upload any dataset. Get a full data-analytics platform back — automatically.**
 
-## Stack
+Cleaning · EDA with auto-generated charts · KPI dashboard · Automated ML ·
+GenAI-written business insights · A chat assistant that writes real SQL
+against your data
 
-- **Backend:** FastAPI, pandas, scikit-learn, Plotly, DuckDB, SQLAlchemy, JWT auth, Groq (Llama)
-- **Frontend:** React + Vite, Tailwind CSS, Framer Motion, react-three-fiber (3D), Plotly.js
+**Live site:** https://insightforge-ai-data-assistant-enhb.vercel.app
+
+[**Live Demo**](https://insightforge-ai-data-assistant-enhb.vercel.app) · [Report a Bug](#) · [Request a Feature](#)
+
+</div>
 
 ---
 
-## 1. Get a free Groq API key
+## What it does
 
-Go to **https://console.groq.com/keys**, sign in, and create an API key.
-Groq has a generous free tier and serves open models (Llama) extremely fast.
+Most "AI data analyst" demos are hardcoded to one sample dataset. InsightForge
+isn't — upload *any* CSV, TSV, XLSX, or JSON, and every part of the app
+adapts to that file's actual columns, types, and data quality:
 
-## 2. Backend setup
+| | |
+|---|---|
+| 📊 **Dashboard** | Auto-selected charts (histograms, bar charts, correlation heatmap, boxplots, time series) with plain-English, numbers-backed captions |
+| 🧠 **AI Insights** | A GenAI-written executive summary + business recommendations, grounded in real statistics — not a generic caption |
+| 🤖 **Machine Learning** | Pick a target column and it auto-detects classification vs. regression, trains and compares 2–3 models, and reports feature importance. No target? It runs KMeans clustering + PCA instead |
+| 📈 **KPI view** | Business-relevant metrics (sales, revenue, cost, etc.) surfaced automatically by column-name detection, plus full stats for every other column |
+| 💬 **Chat Assistant** | Ask questions in plain English — it writes and runs real SQL queries against your data (via DuckDB) and can draw new charts on request, with full multi-turn conversation history |
+
+Everything is dataset-agnostic by design — none of it is hardcoded to any
+particular schema.
+
+---
+
+## Tech stack
+
+**Backend** — FastAPI · pandas · scikit-learn · Plotly · DuckDB · SQLAlchemy · JWT auth · Groq (Llama)
+**Frontend** — React + Vite · Tailwind CSS · Framer Motion · react-three-fiber (3D) · Plotly.js
+**Database** — Neon (serverless Postgres, free tier)
+**File storage** — Supabase Storage
+**Hosting** — Render (backend) · Vercel (frontend)
+**Uptime** — UptimeRobot (keeps the free-tier backend warm)
+
+---
+
+## Getting started (local development)
+
+### 1. Get a free Groq API key
+Go to **[console.groq.com/keys](https://console.groq.com/keys)**, sign in, create a key.
+Groq's free tier serves open models (Llama) extremely fast.
+
+### 2. Backend
 
 ```bash
 cd backend
@@ -28,14 +61,25 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# open .env and fill in GROQ_API_KEY and SECRET_KEY (any random string)
+# fill in the values below
 
 uvicorn main:app --reload --port 8000
 ```
 
-The API is now live at `http://localhost:8000` (interactive docs at `/docs`).
+API live at `http://localhost:8000` (interactive docs at `/docs`).
 
-## 3. Frontend setup
+#### Environment variables
+
+| Variable | Purpose | Required locally? |
+|---|---|---|
+| `GROQ_API_KEY` | Groq LLM access | ✅ |
+| `SECRET_KEY` | JWT signing — any random string | ✅ |
+| `DATABASE_URL` | Postgres connection string. Falls back to local SQLite if unset. | Optional locally, **required in production** |
+| `SUPABASE_URL` | Your Supabase project URL | **Required in production** |
+| `SUPABASE_SERVICE_KEY` | Supabase `service_role` secret key | **Required in production** |
+| `SUPABASE_BUCKET` | Storage bucket name for uploaded datasets | **Required in production** |
+
+### 3. Frontend
 
 ```bash
 cd frontend
@@ -43,96 +87,95 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. The Vite dev server proxies `/api/*` to the
-backend on port 8000 (see `vite.config.js`), so both must be running.
+Open `http://localhost:5173`. Vite proxies `/api/*` to the backend on port
+8000 in dev — both need to be running.
 
-## 4. Try it
+For production, set `VITE_API_URL` in your host's environment to your
+deployed backend's root URL.
 
-1. Sign up — passwords must be 8+ characters with an uppercase letter,
-   lowercase letter, number, and special character. The account is ready
-   immediately, no email step required.
-2. Go to **Workspace** and drop in any CSV/XLSX/JSON file.
-3. Explore the **Dashboard** tab (KPIs + auto-generated, brand-colored,
-   Colab/Power-BI-style charts with descriptions), the **AI Insights** tab
-   (AI-written executive summary + recommendations), and the **Machine
-   Learning** tab (pick a target column for classification/regression, or
-   leave it blank for clustering).
-4. Open **Assistant** and ask questions — try both a descriptive question
-   ("what is this dataset about") and a specific one ("what's the average
-   revenue by region?" or "write me a SQL query for top 5 products by
-   revenue") — the assistant picks the right tool automatically and grounds
-   its answer in the actual query result, not a generic caption.
+### 4. Try it
+
+1. Sign up (password: 8+ chars, upper, lower, number, special character — instant account, no email step).
+2. Upload any CSV/XLSX/JSON in **Workspace**.
+3. Explore **Dashboard**, **AI Insights**, and **Machine Learning**.
+4. Open **Assistant** and ask something specific — e.g. *"what's the average revenue by region?"* or *"write me a SQL query for the top 5 products by revenue"*.
 
 ---
 
-## How the automated analysis works
+## How it works under the hood
 
-- **Cleaning** (`backend/services/profiler.py`): strips whitespace, drops
-  duplicates, coerces numeric/datetime columns stored as text, imputes
-  missing values (median for numeric, mode for categorical).
-- **Profiling**: infers a semantic type per column (numeric, categorical,
-  datetime, boolean, identifier, text), computes descriptive stats, skew,
-  outlier counts (IQR method), and a correlation matrix. All numeric fields
-  are explicitly cast to JSON-safe Python floats (`NaN`/`Infinity` become
-  `null`) since raw numpy/NaN values aren't valid JSON.
-- **EDA** (`backend/services/eda.py`): auto-selects a relevant chart per
-  situation (histograms for numeric spread, bar charts for top categories,
-  a correlation heatmap, boxplots for outliers, a time series if a date
-  column exists) and writes a one-line, numbers-backed description under
-  each chart. Every chart shares one global style function — `plotly_white`
-  template, the `#636EFA`/`#00CC96`/`#EF553B`/`#AB63FA`/`#FFA15A` palette,
-  Inter font, labeled bars, no modebar — for a consistent, professional look
-  across every chart type.
-- **ML** (`backend/services/ml_pipeline.py`): with a target column, it
-  detects classification vs. regression automatically, trains 2–3 candidate
-  models, and reports the best one with feature importance. Without a
-  target, it runs KMeans (auto-picking k via silhouette score) + PCA for a
-  2D cluster visualization.
-- **GenAI layer** (`backend/services/groq_service.py`): the assistant has
-  two tools — `generate_chart` (draws a new Plotly chart) and `run_sql_query`
-  (runs a real, read-only SQL `SELECT` against your actual uploaded data via
-  DuckDB, with destructive statements like `DROP`/`DELETE`/`INSERT` blocked).
-  Critically, this does the **full two-step tool-calling round trip**: when
-  the model calls a tool, the result is executed and fed *back* to the model
-  before it writes its final answer — so replies are grounded in real
-  numbers instead of generic captions like "here's the chart you asked for."
-  The LLM never sees raw dataset rows except the small result sets it
-  explicitly queries — keeps token cost down and avoids dumping the whole
-  dataset into every request.
+- **Cleaning** (`profiler.py`) — strips whitespace, drops duplicates, coerces
+  numeric/datetime columns stored as text, imputes missing values.
+- **Profiling** — infers a semantic type per column (numeric, categorical,
+  datetime, boolean, identifier, text), computes stats, skew, IQR outliers,
+  and a correlation matrix.
+- **EDA** (`eda.py`) — auto-selects the right chart per situation and writes
+  a one-line, numbers-backed caption under each. One shared style function
+  keeps every chart visually consistent.
+- **ML** (`ml_pipeline.py`) — auto-detects classification vs. regression,
+  validates the target column actually has enough class diversity to train
+  on (returns a clear message instead of crashing if not), trains multiple
+  candidate models, and reports the best one with feature importance.
+- **GenAI layer** (`groq_service.py`) — the chat assistant has two tools:
+  `generate_chart` and `run_sql_query` (real, read-only SQL via DuckDB —
+  destructive statements are blocked). It does a full two-step tool-calling
+  round trip: the tool result is fed back to the model before it writes its
+  final answer, so replies are grounded in actual numbers.
+- **AI Insights** — a separate, stateless one-shot Groq call built from a
+  compact statistical summary (never the full dataset or chat history), so
+  it can't grow unbounded regardless of dataset size.
 
 ---
 
-## Deployment
+## Real engineering challenges solved
 
-**Backend** → Render, Railway, or Fly.io all work well for FastAPI:
-- Set `DATABASE_URL` to a managed Postgres instance (Render/Railway both
-  offer one free tier).
-- Set `GROQ_API_KEY` and a strong `SECRET_KEY` as environment variables.
-- Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+Building the demo is the easy part — running it reliably on free-tier
+infrastructure surfaced a few genuine production problems worth documenting:
 
-**Frontend** → Vercel or Netlify:
-- Build command: `npm run build`, output directory: `dist`
-- Set an environment-based API URL (currently the dev proxy targets
-  `localhost:8000` — for production, point `src/api/client.js`'s `baseURL`
-  at your deployed backend URL instead of `/api`).
-- Update the backend's CORS `allow_origins` in `main.py` to include your
-  deployed frontend domain.
+- **Ephemeral file storage** — Render's free-tier filesystem wipes on every
+  restart/redeploy. Uploaded dataset files were silently disappearing.
+  Fixed by moving file storage from local disk to Supabase Storage.
+- **Database persistence** — same root issue for the SQLite database itself
+  (accounts and datasets vanishing after a redeploy). Fixed by migrating to
+  Neon Postgres.
+- **CORS across ephemeral preview URLs** — Vercel gives every deploy a
+  different subdomain. Fixed with a regex-based CORS policy on the backend
+  instead of a hardcoded origin list.
+- **Cold-start failures** — Render's free tier sleeps after ~15 minutes
+  idle, and cold starts can take 50+ seconds; the waking request often
+  fails outright rather than just being slow. Fixed with an automatic
+  retry-with-backoff interceptor on the frontend, plus an UptimeRobot
+  monitor to reduce how often it happens at all.
+- **Unhandled ML edge cases** — an imbalanced or constant target column
+  would crash the ML endpoint with a raw scikit-learn error. Fixed by
+  validating class diversity up front, stratifying the train/test split,
+  and wrapping each candidate model in its own try/except so one model
+  failing doesn't take down the whole comparison.
+- **Slow model training on limited CPU** — training multiple models on
+  larger datasets could exceed the frontend's request timeout on Render's
+  free-tier CPU. Fixed by reducing estimator counts, parallelizing Random
+  Forest training, and extending the client-side timeout to a realistic
+  window.
 
 ---
 
-## Extending it further (great talking points for an interview)
+## Extending it further
 
-- **Swap or add an LLM provider**: `backend/services/groq_service.py` is
-  isolated by design — mirror its two functions (`generate_business_insights`,
-  `chat`) with another SDK (OpenAI, Anthropic, etc.) to add a second provider.
-- **Streaming chat**: switch the `/chat/{id}/message` endpoint to a
-  `StreamingResponse` and Groq's streaming completions for token-by-token
-  replies.
-- **More ML**: add time-series forecasting (Prophet/ARIMA) when a datetime
-  column + numeric target are both present — `ml_pipeline.py` already
-  detects datetime columns via the profiler.
-- **Dashboard filters & drill-down**: today the Dashboard tab shows a fixed
-  auto-generated chart gallery. A natural next step is a filter bar (date
-  range, category, region) that re-queries `/analysis/{id}/dashboard` with
-  query params, plus category → subcategory drill-down using the same
-  `run_sql_query` machinery already built for chat.
+- **Swap or add an LLM provider** — `groq_service.py` is isolated by design;
+  mirror its two functions with another SDK (OpenAI, Anthropic, etc.).
+- **Streaming chat** — switch to a `StreamingResponse` + Groq's streaming
+  completions for token-by-token replies.
+- **Time-series forecasting** — `ml_pipeline.py` already detects datetime
+  columns; Prophet/ARIMA would slot in naturally.
+- **Multi-column dashboard filters** and category → subcategory drill-down,
+  reusing the existing `run_sql_query` machinery.
+- **Dataset management UI** — the backend already has a DELETE endpoint for
+  datasets; the frontend doesn't expose it yet.
+
+---
+
+<div align="center">
+
+Built as a full-stack portfolio project — feedback and PRs welcome.
+
+</div>
