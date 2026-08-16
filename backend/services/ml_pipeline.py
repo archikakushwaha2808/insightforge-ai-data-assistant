@@ -178,14 +178,14 @@ def run_supervised(df: pd.DataFrame, target_col: str) -> dict:
     if is_classification:
         candidates = {
             "Logistic Regression": LogisticRegression(max_iter=1000),
-            "Random Forest": RandomForestClassifier(n_estimators=200, random_state=42),
-            "Gradient Boosting": GradientBoostingClassifier(random_state=42),
+            "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1),
+            "Gradient Boosting": GradientBoostingClassifier(random_state=42, n_estimators=100),
         }
     else:
         candidates = {
             "Linear Regression": LinearRegression(),
-            "Random Forest": RandomForestRegressor(n_estimators=200, random_state=42),
-            "Gradient Boosting": GradientBoostingRegressor(random_state=42),
+           "Random Forest": RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1),
+            "Gradient Boosting": GradientBoostingRegressor(random_state=42, n_estimators=100),
         }
 
     results = {}

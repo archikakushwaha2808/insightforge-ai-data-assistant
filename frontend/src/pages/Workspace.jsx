@@ -153,7 +153,7 @@ export default function Workspace() {
     try {
       const res = await client.post(`/analysis/${dataset.dataset_id}/ml`, null, {
         params: target ? { target_column: target } : {},
-        timeout: 60000, // model training can legitimately take longer than the default
+        timeout: 180000, // model training can legitimately take longer than the default
       })
       setMlResult(res.data)
     } catch (err) {
