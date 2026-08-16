@@ -37,7 +37,7 @@ particular schema.
 
 ## Tech stack
 
-**Backend** — FastAPI · pandas · scikit-learn · Plotly · DuckDB · SQLAlchemy · JWT auth · Groq (Llama)
+**Backend** — FastAPI · pandas · scikit-learn · Plotly · DuckDB · SQLAlchemy · JWT auth · Groq (openai/gpt-oss-20b)
 **Frontend** — React + Vite · Tailwind CSS · Framer Motion · react-three-fiber (3D) · Plotly.js
 **Database** — Neon (serverless Postgres, free tier)
 **File storage** — Supabase Storage
@@ -50,7 +50,7 @@ particular schema.
 
 ### 1. Get a free Groq API key
 Go to **[console.groq.com/keys](https://console.groq.com/keys)**, sign in, create a key.
-Groq's free tier serves open models (Llama) extremely fast.
+Groq's free tier serves open-weight models extremely fast.
 
 ### 2. Backend
 
