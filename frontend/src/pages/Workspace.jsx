@@ -38,7 +38,6 @@ export default function Workspace() {
 
   const [loadingDashboard, setLoadingDashboard] = useState(false)
   const [loadingInsights, setLoadingInsights] = useState(false)
-const [loadingML, setLoadingML] = useState(false)
   const [loadingMl, setLoadingMl] = useState(false)
   const [insightsError, setInsightsError] = useState('')
   const [mlError, setMlError] = useState('')
@@ -461,7 +460,7 @@ const [loadingML, setLoadingML] = useState(false)
               </div>
             )}
 
-{!loadingML && mLError && (
+{!loadingMl && mlError && (
   <div className="py-6 text-center">
     <div className="inline-block px-6 py-4 rounded-xl border border-signal-magenta/30 bg-signal-magenta/5">
       <div className="flex items-center justify-center gap-2 text-signal-magenta text-sm font-medium">
@@ -470,17 +469,17 @@ const [loadingML, setLoadingML] = useState(false)
       </div>
 
       <p className="mt-2 text-xs text-muted max-w-md">
-        {String(mLError).includes("429") ||
-        String(mLError).toLowerCase().includes("rate limit")
+        {String(mlError).includes("429") ||
+        String(mlError).toLowerCase().includes("rate limit")
           ? "The AI service is temporarily busy. Please wait a moment and try again."
-          : String(mLError).includes("502")
+          : String(mlError).includes("502")
           ? "The AI service is temporarily unavailable. Please try again in a moment."
           : "We couldn't complete this operation. Please check your data and try again."}
       </p>
 
       <button
         type="button"
-        onClick={() => setMLError("")}
+        onClick={() => setMlError("")}
         className="mt-3 text-sm text-signal-cyan hover:underline"
       >
         Try again
