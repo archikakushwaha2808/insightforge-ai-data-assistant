@@ -57,55 +57,35 @@ class AssistantOverloadedError(Exception):
 
 
 def _create_completion(**kwargs):
-    """Thin wrapper around client.chat.completions.create that always sets
-    a request timeout and translates Groq's own timeout/connection/overload
-    errors into our own exception types. Every completion call in this file
-    goes through here so error handling is consistent everywhere."""
+    """Create a Groq completion with clean error handling."""
     kwargs.setdefault("timeout", settings.GROQ_TIMEOUT_SECONDS)
-        max_retries = 3
 
-    for attempt in range(max_retries):
-        try:
-            return client.chat.completions.create(**kwargs)
+    try:
+        return client.chat.completions.create(**kwargs)
 
-        except APITimeoutError as e:
-            raise AssistantTimeoutError(
-                f"Groq request timed out after {settings.GROQ_TIMEOUT_SECONDS} seconds."
-            ) from e
+    except APITimeoutError as e:
+        raise AssistantTimeoutError(
+            f"Groq request timed out after {settings.GROQ_TIMEOUT_SECONDS} seconds."
+        ) from e
 
-        except APIConnectionError as e:
-            # Network-level failure reaching Groq behaves the same as a timeout
-            # from the caller's point of view: no usable response can come back.
-            raise AssistantTimeoutError(
-                f"Could not reach Groq: {e}"
-            ) from e
+    except APIConnectionError as e:
+        raise AssistantTimeoutError(
+            f"Could not reach Groq: {e}"
+        ) from e
 
-        except RateLimitError as e:
-            if attempt < max_retries - 1:
-                wait_seconds = 2 ** attempt
-                time.sleep(wait_seconds)
-                continue
+    except APIError as e:
+        status_code = getattr(e, "status_code", None)
 
+        if status_code == 429:
             raise AssistantOverloadedError(
-                "The assistant is getting a lot of requests right now (rate limit reached). "
-                "Please wait a few seconds and try again."
+                "The AI service is temporarily busy. Please wait a few seconds and try again."
             ) from e
-    except APIStatusError as e:
-        if e.status_code == 413:
+
+        if status_code == 413:
             raise AssistantOverloadedError(
-                "That conversation has grown too long for one request. Starting a new chat, or "
-                "asking a shorter/more specific question, will fix this."
+                "That conversation is too long for one request. Please start a new chat or ask a shorter question."
             ) from e
-        if e.status_code == 429:
-            raise AssistantOverloadedError(
-                "The assistant is getting a lot of requests right now (rate limit reached). "
-                "Please wait a few seconds and try again."
-            ) from e
-        raise
-    except APIError:
-        # Real API errors (bad request, auth, 5xx from Groq itself, etc.)
-        # are left to propagate as-is; the router maps these to HTTP 502
-        # since they're a genuine upstream failure, not a timeout/overload.
+
         raise
 
 
