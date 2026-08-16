@@ -395,7 +395,7 @@ export default function Workspace() {
           </motion.div>
         )}
 
-        {tab === 'ml' && (
+{tab === 'ml' && (
           <motion.div key="ml" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
             <div className="flex flex-wrap items-center gap-3">
               <select
@@ -430,6 +430,23 @@ export default function Workspace() {
       name.includes("product id") ||
       name.includes("row id")
     ) {
+      return false;
+    }
+
+    // Exclude columns with fewer than 2 distinct values — a constant
+    // column has no variance, so it can't be predicted (regression) or
+    // classified at all. This is the exact condition that used to crash
+    // the backend with an unhandled scikit-learn error.
+    if (c.unique_count !== undefined && c.unique_count < 2) {
+      return false;
+    }
+
+    // Exclude near-unique high-cardinality columns (e.g. names, free-text,
+    // unlabeled identifiers) — even without "id" in the name, a column
+    // where almost every row is a distinct value can't be meaningfully
+    // classified and isn't a useful regression target either.
+    const totalRows = dashboardData?.profile?.n_rows;
+    if (totalRows && c.unique_count !== undefined && c.unique_count / totalRows > 0.9) {
       return false;
     }
 
@@ -487,6 +504,18 @@ export default function Workspace() {
     </div>
   </div>
 )}
+
+            {!loadingMl && mlResult && mlResult.error && (
+              <div className="py-6 text-center">
+                <div className="inline-block px-6 py-4 rounded-xl border border-signal-magenta/30 bg-signal-magenta/5">
+                  <div className="flex items-center justify-center gap-2 text-signal-magenta text-sm font-medium">
+                    <AlertTriangle size={16} />
+                    <span>Couldn't train a model on this column</span>
+                  </div>
+                  <p className="mt-2 text-xs text-muted max-w-md">{mlResult.error}</p>
+                </div>
+              </div>
+            )}
 
             {!loadingMl && mlResult && !mlResult.error && (
               <>

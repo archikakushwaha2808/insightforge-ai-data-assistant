@@ -36,6 +36,7 @@ def _prepare_features(df: pd.DataFrame, feature_cols: list[str]):
     X_imputed = pd.DataFrame(imputer.fit_transform(X), columns=X.columns, index=X.index)
     return X_imputed, encoders
 
+
 def get_valid_target_columns(df: pd.DataFrame) -> list[str]:
     """
     Automatically find columns that are suitable ML prediction targets.
@@ -144,10 +145,32 @@ def run_supervised(df: pd.DataFrame, target_col: str) -> dict:
 
     if is_classification:
         y = LabelEncoder().fit_transform(y_raw.astype(str))
+        # A classifier can't be trained on a target with fewer than 2 classes,
+        # and scikit-learn's classifiers raise an unhandled ValueError rather
+        # than a friendly message. Fail clearly here instead of crashing the
+        # whole request with a raw 500.
+        unique_classes, class_counts = np.unique(y, return_counts=True)
+        if len(unique_classes) < 2:
+            return {"error": f"'{target_col}' has only one distinct value in this dataset, "
+                              "so it can't be used as a classification target. Pick a column "
+                              "with at least two different categories."}
+        # Classes with only 1 sample can't be split into both train and test
+        # sets at all (stratify requires >=2 per class); this pre-empts a
+        # crash rather than letting train_test_split fail unhandled below.
+        if class_counts.min() < 2:
+            return {"error": f"'{target_col}' has a category that appears only once in this "
+                              "dataset, which isn't enough data to train and test on. Pick a "
+                              "column where every category appears at least twice."}
     else:
         y = y_raw.values
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # stratify=y keeps each class's proportion consistent across the
+    # train/test split — without it, an imbalanced target column can by
+    # chance put every sample of the minority class into the test set,
+    # leaving the training set with only one class and crashing model.fit().
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y if is_classification else None
+    )
     scaler = StandardScaler()
     X_train_s = scaler.fit_transform(X_train)
     X_test_s = scaler.transform(X_test)
@@ -168,18 +191,29 @@ def run_supervised(df: pd.DataFrame, target_col: str) -> dict:
     results = {}
     best_name, best_model, best_score = None, None, -np.inf
     for name, model in candidates.items():
-        model.fit(X_train_s, y_train)
-        preds = model.predict(X_test_s)
-        if is_classification:
-            score = f1_score(y_test, preds, average="weighted")
-            results[name] = {"accuracy": round(float(accuracy_score(y_test, preds)), 4),
-                              "f1_score": round(float(score), 4)}
-        else:
-            score = r2_score(y_test, preds)
-            results[name] = {"r2_score": round(float(score), 4),
-                              "mae": round(float(mean_absolute_error(y_test, preds)), 4)}
+        # One model failing on this particular data (e.g. a solver-specific
+        # edge case) shouldn't crash the whole comparison — skip it and keep
+        # whichever models did train successfully.
+        try:
+            model.fit(X_train_s, y_train)
+            preds = model.predict(X_test_s)
+            if is_classification:
+                score = f1_score(y_test, preds, average="weighted")
+                results[name] = {"accuracy": round(float(accuracy_score(y_test, preds)), 4),
+                                  "f1_score": round(float(score), 4)}
+            else:
+                score = r2_score(y_test, preds)
+                results[name] = {"r2_score": round(float(score), 4),
+                                  "mae": round(float(mean_absolute_error(y_test, preds)), 4)}
+        except Exception as e:
+            results[name] = {"error": str(e)}
+            continue
         if score > best_score:
             best_name, best_model, best_score = name, model, score
+
+    if best_model is None:
+        return {"error": "None of the models could be trained on this data. "
+                          "Try a different target column."}
 
     feature_importance = None
     if hasattr(best_model, "feature_importances_"):
